@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>外卖比价AI助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+        }
+    </style>
+    <style>
+        /* 系统级暗黑模式 */
+        @media (prefers-color-scheme: dark) {
+            html {
+                color-scheme: dark;
+            }
+        }
+        @media (prefers-color-scheme: light) {
+            html {
+                color-scheme: light;
+            }
+        }
+    </style>
+    <link rel="manifest" href="manifest.json">
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <div class="max-w-md mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">🍔 外卖比价AI助手</h1>
+
+        <!-- 上传区域 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex flex-col items-center justify-center">
+                <label for="file-upload" class="w-full cursor-pointer">
+                    <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">点击上传截图 或 截图后自动识别</p>
+                    </div>
+                </label>
+                <input id="file-upload" type="file" accept="image/*" class="hidden">
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loading" class="hidden text-center mb-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">正在识别中...</p>
+        </div>
+
+        <!-- 结果区域 -->
+        <div id="result" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4">识别结果</h2>
+            <div id="result-content"></div>
+            
+            <!-- 平台跳转按钮 -->
+            <div class="grid grid-cols-3 gap-3 mt-6">
+                <a id="meituan-btn" href="#" target="_blank" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors">美团</a>
+                <a id="jd-btn" href="#" target="_blank" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors">京东</a>
+                <a id="taobao-btn" href="#" target="_blank" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors">淘宝</a>
+            </div>
+
+            <!-- 一键分享按钮 -->
+            <button id="share-btn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                📤 分享结果
+            </button>
+        </div>
+
+        <!-- 历史记录 -->
+        <div id="history-section" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h2 class="text-xl font-bold mb-4">📜 历史记录</h2>
+            <div id="history-list" class="space-y-2">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">暂无历史记录</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 替换成你自己的Cloudflare Worker地址
+        const API_URL = "https://plain-disk-c919.zhuzhaowei01.workers.dev/";
+        const MAX_HISTORY = 10;
+
+        // 页面加载时自动读取剪贴板
+        window.addEventListener('load', async () => {
+            loadHistory();
+            try {
+                const items = await navigator.clipboard.read();
+                for (const item of items) {
+                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                        const blob = await item.getType(item.types[0]);
+                        uploadImage(blob);
+                        break;
+                    }
+                }
+            } catch (e) {
+                // 剪贴板没有图片或权限不足，静默失败
+            }
+        });
+
+        // 文件上传事件
+        document.getElementById('file-upload').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadImage(e.target.files[0]);
+            }
+        });
+
+        // 分享按钮事件
+        document.getElementById('share-btn').addEventListener('click', async () => {
+            const resultText = document.getElementById('result-content').innerText;
+            const shareData = {
+                title: '外卖比价结果',
+                text: resultText,
+                url: window.location.href
+            };
+
+            try {
+                await navigator.share(shareData);
+            } catch (e) {
+                // 不支持原生分享，复制到剪贴板
+                await navigator.clipboard.writeText(resultText);
+                alert('结果已复制到剪贴板');
+            }
+        });
+
+        // 上传图片并识别
+        async function uploadImage(file) {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('result').classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    displayResult(data);
+                    saveToHistory(data);
+                }
+            } catch (e) {
+                alert('识别失败，请检查网络连接');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        // 显示识别结果
+        function displayResult(data) {
+            const content = document.getElementById('result-content');
+            let html = `
+                <p><strong>商家：</strong>${data.shop_name}</p>
+                <p><strong>套餐：</strong>${data.package_name}</p>
+                <p><strong>价格：</strong>¥${data.original_price}</p>
+                <p><strong>配料：</strong>${data.ingredients.join('、')}</p>
+            `;
+
+            if (data.warnings && data.warnings.length > 0) {
+                html += `<div class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <p class="font-medium text-yellow-800 dark:text-yellow-200">⚠️ 注意事项</p>
+                    <ul class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">`;
+                data.warnings.forEach(warning => {
+                    html += `<li>• ${warning}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            if (data.saving_tips && data.saving_tips.length > 0) {
+                html += `<div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <p class="font-medium text-green-800 dark:text-green-200">💡 省钱建议</p>
+                    <ul class="mt-1 text-sm text-green-700 dark:text-green-300">`;
+                data.saving_tips.forEach(tip => {
+                    html += `<li>• ${tip}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            content.innerHTML = html;
+
+            // 设置跳转链接
+            document.getElementById('meituan-btn').href = `https://waimai.meituan.com/search?query=${encodeURIComponent(data.search_queries.meituan)}`;
+            document.getElementById('jd-btn').href = `https://waimai.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
+            document.getElementById('taobao-btn').href = `https://market.m.taobao.com/app/tb-search/search?keyword=${encodeURIComponent(data.search_queries.taobao)}`;
+
+            document.getElementById('result').classList.remove('hidden');
+        }
+
+        // 保存到本地历史记录
+        function saveToHistory(data) {
+            let history = JSON.parse(localStorage.getItem('compare_history') || '[]');
+            
+            // 添加新记录到最前面
+            history.unshift({
+                ...data,
+                timestamp: Date.now()
+            });
+
+            // 最多保留10条
+            if (history.length > MAX_HISTORY) {
+                history = history.slice(0, MAX_HISTORY);
+            }
+
+            localStorage.setItem('compare_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        // 加载历史记录
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('compare_history') || '[]');
+            const historyList = document.getElementById('history-list');
+
+            if (history.length === 0) {
+                historyList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">暂无历史记录</p>';
+                return;
+            }
+
+            let html = '';
+            history.forEach((item, index) => {
+                const date = new Date(item.timestamp).toLocaleString();
+                html += `
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onclick='displayResult(${JSON.stringify(item)})'>
+                        <p class="font-medium">${item.shop_name} - ${item.package_name}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">¥${item.original_price} | ${date}</p>
+                    </div>
+                `;
+            });
+
+            historyList.innerHTML = html;
+        }
+
+        // 注册PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>
