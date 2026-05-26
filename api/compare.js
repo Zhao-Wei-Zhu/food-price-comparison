@@ -1,11 +1,25 @@
+export const config = {
+  maxDuration: 60, // ✅ 修复问题1：Vercel默认10秒超时，豆包API经常超过
+};
+
 export default async function handler(req, res) {
   // 处理CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // ✅ 修复问题2：添加GET测试端点，方便直接在浏览器调试
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      status: "ok",
+      message: "API正常运行",
+      api_key_set: !!process.env.DOUBAO_API_KEY,
+      model: "ep-20260526232354-lnflf"
+    });
   }
 
   if (req.method !== 'POST') {
@@ -25,6 +39,10 @@ export default async function handler(req, res) {
     const buffer = Buffer.from(arrayBuffer);
     const base64Image = buffer.toString('base64');
 
+    // ✅ 修复问题3：给fetch添加30秒超时，避免函数挂起
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     // 调用豆包API（官方原生接口）
     const response = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
       method: "POST",
@@ -33,7 +51,7 @@ export default async function handler(req, res) {
         "Authorization": `Bearer ${process.env.DOUBAO_API_KEY}`
       },
       body: JSON.stringify({
-        model: "doubao-vision-pro-32k",
+        model: "ep-20260526232354-lnflf",
         max_tokens: 1024,
         temperature: 0.05,
         messages: [
@@ -79,20 +97,44 @@ export default async function handler(req, res) {
             ]
           }
         ]
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
-      return res.status(500).json({ error: "API调用失败", details: errorText });
+      return res.status(500).json({ 
+        error: "豆包API调用失败", 
+        status: response.status,
+        details: errorText.substring(0, 500) // 只返回前500个字符，避免响应过大
+      });
     }
 
     const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
-    return res.status(200).json(result);
+    
+    // ✅ 修复问题4：添加JSON解析错误处理
+    try {
+      const result = JSON.parse(data.choices[0].message.content);
+      return res.status(200).json(result);
+    } catch (parseError) {
+      return res.status(500).json({
+        error: "AI返回格式错误",
+        raw_response: data.choices[0].message.content.substring(0, 500)
+      });
+    }
 
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: '识别失败：' + error.message });
+    
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ error: '识别超时，请重试' });
+    }
+    
+    return res.status(500).json({ 
+      error: '服务器错误',
+      message: error.message
+    });
   }
 }
