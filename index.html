@@ -18,6 +18,7 @@
         }
     </style>
     <style>
+        /* 系统级暗黑模式自动适配 */
         @media (prefers-color-scheme: dark) {
             html {
                 color-scheme: dark;
@@ -83,12 +84,12 @@
     </div>
 
     <script>
-        // 替换成你自己的Cloudflare Worker地址
-        const API_URL = "https://plain-disk-c919.zhuzhaowei01.workers.dev";
+        // ✅ 已经设置为正确的Vercel Functions路径
+        const API_URL = "/api/compare";
         const MAX_HISTORY = 10;
         let currentResult = null;
 
-        // 页面加载时自动读取剪贴板
+        // 页面加载时自动读取剪贴板的截图
         window.addEventListener('load', async () => {
             loadHistory();
             try {
@@ -156,13 +157,13 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 const data = await response.json();
                 
                 if (data.error) {
-                    alert(data.error);
+                    alert(`识别失败：${data.error}${data.details ? '\n' + data.details : ''}`);
                 } else {
                     displayResult(data);
                     saveToHistory(data);
                 }
             } catch (e) {
-                alert('识别失败，请检查网络连接');
+                alert('网络连接失败，请检查网络后重试');
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }
@@ -201,7 +202,7 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
 
             content.innerHTML = html;
 
-            // 设置跳转链接
+            // 设置三个平台的跳转链接
             document.getElementById('meituan-btn').href = `https://waimai.meituan.com/search?query=${encodeURIComponent(data.search_queries.meituan)}`;
             document.getElementById('jd-btn').href = `https://waimai.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
             document.getElementById('taobao-btn').href = `https://market.m.taobao.com/app/tb-search/search?keyword=${encodeURIComponent(data.search_queries.taobao)}`;
@@ -218,6 +219,7 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 timestamp: Date.now()
             });
 
+            // 最多保留10条历史记录
             if (history.length > MAX_HISTORY) {
                 history = history.slice(0, MAX_HISTORY);
             }
@@ -226,7 +228,7 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
             loadHistory();
         }
 
-        // 加载历史记录（修复了栈溢出问题）
+        // 加载历史记录（彻底修复了栈溢出问题）
         function loadHistory() {
             const history = JSON.parse(localStorage.getItem('compare_history') || '[]');
             const historyList = document.getElementById('history-list');
@@ -249,11 +251,13 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
 
             historyList.innerHTML = html;
 
-            // 绑定点击事件
+            // 绑定历史记录点击事件
             document.querySelectorAll('.history-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const index = parseInt(item.dataset.index);
                     displayResult(history[index]);
+                    // 点击后滚动到结果区域
+                    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
                 });
             });
         }
