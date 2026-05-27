@@ -3,125 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>外卖比价AI助手</title>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#3b82f6">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>外卖比价 AI 助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
-    </script>
-    <style type="text/tailwindcss">
-        @layer utilities {
-            .content-auto {
-                content-visibility: auto;
-            }
-            .btn-active:active {
-                transform: scale(0.98);
-            }
-        }
-    </style>
+    <link rel="manifest" href="/manifest.json">
     <style>
+        /* 系统级暗黑模式自动适配 */
         @media (prefers-color-scheme: dark) {
             html {
                 color-scheme: dark;
             }
         }
-        @media (prefers-color-scheme: light) {
-            html {
-                color-scheme: light;
-            }
-        }
-        .toast {
-            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s;
-        }
-        @keyframes slideIn {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
     </style>
 </head>
-<body class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
-    <!-- Toast 提示 -->
-    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden">
-        <div class="bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 rounded-lg shadow-lg toast">
-            <span id="toast-message"></span>
-        </div>
-    </div>
-
-    <div class="max-w-md mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold text-center mb-8">🍔 外卖比价AI助手</h1>
-
-        <!-- 上传区域 -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
-            <div class="flex flex-col items-center justify-center">
-                <label for="file-upload" class="w-full cursor-pointer">
-                    <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">点击上传截图</p>
-                    </div>
-                </label>
-                <input id="file-upload" type="file" accept="image/*" class="hidden">
-                
-                <!-- 粘贴截图按钮 -->
-                <button id="paste-btn" class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors btn-active">
-                    📋 粘贴截图
-                </button>
-
-                <!-- 图片预览 -->
-                <div id="image-preview" class="mt-4 hidden w-full">
-                    <img id="preview-img" class="w-full rounded-lg shadow" alt="预览图">
-                    <button id="clear-preview" class="mt-2 w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium py-2 px-4 rounded-lg transition-colors btn-active">
-                        重新选择
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 加载状态 -->
-        <div id="loading" class="hidden text-center mb-8">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">正在识别中...</p>
-        </div>
-
-        <!-- 结果区域 -->
-        <div id="result" class="hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
-            <h2 class="text-xl font-bold mb-4">识别结果</h2>
-            <div id="result-content"></div>
-            
-            <!-- 平台跳转按钮 -->
-            <div class="grid grid-cols-3 gap-3 mt-6">
-                <a id="meituan-btn" href="#" target="_blank" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors btn-active">美团</a>
-                <a id="jd-btn" href="#" target="_blank" class="bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors btn-active">京东</a>
-                <a id="taobao-btn" href="#" target="_blank" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors btn-active">淘宝</a>
-            </div>
-
-            <!-- 一键分享按钮 -->
-            <button id="share-btn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors btn-active">
-                📤 分享结果
+<body class="bg-gray-50 min-h-screen p-4">
+    <div class="max-w-xl mx-auto">
+        <h1 class="text-2xl font-bold text-center mb-6 text-blue-600">外卖比价 AI 助手</h1>
+        
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <input type="file" id="file-input" accept="image/*" capture="environment" class="hidden">
+            <button id="upload-btn" class="w-full bg-blue-500 text-white py-3 rounded-lg font-bold">
+                上传外卖截图
             </button>
         </div>
 
-        <!-- 历史记录 -->
-        <div id="history-section" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">📜 历史记录</h2>
-                <button id="clear-history" class="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400">
-                    清空
-                </button>
+        <div id="loading" class="hidden text-center py-4">
+            <p>AI 识别中...</p>
+        </div>
+
+        <div id="result" class="hidden bg-white rounded-lg shadow p-4 mb-4">
+            <h2 class="font-bold text-lg mb-2">识别结果</h2>
+            <div id="result-content"></div>
+            
+            <div class="grid grid-cols-3 gap-2 mt-4">
+                <a id="meituan-btn" target="_blank" class="bg-yellow-500 text-white text-center py-2 rounded">美团</a>
+                <a id="jd-btn" target="_blank" class="bg-red-500 text-white text-center py-2 rounded">京东</a>
+                <a id="taobao-btn" target="_blank" class="bg-green-500 text-white text-center py-2 rounded">淘宝</a>
             </div>
-            <div id="history-list" class="space-y-2">
-                <p class="text-gray-500 dark:text-gray-400 text-sm">暂无历史记录</p>
-            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="font-bold text-lg mb-2">历史记录</h2>
+            <div id="history-list" class="space-y-2"></div>
         </div>
     </div>
 
@@ -129,132 +51,38 @@
         const API_URL = "/api/compare";
         const MAX_HISTORY = 10;
         let currentResult = null;
-        let selectedFile = null;
 
-        // 注册Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
-            });
-        }
-
-        // Toast 提示函数
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toast-message');
-            toastMessage.textContent = message;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
-
-        // 页面加载时尝试读取剪贴板
+        // 页面加载时自动读取剪贴板的截图
         window.addEventListener('load', async () => {
             loadHistory();
             try {
                 const items = await navigator.clipboard.read();
                 for (const item of items) {
-                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
-                        const blob = await item.getType(item.types[0]);
-                        handleImage(blob);
-                        break;
+                    if (item.types.includes('image/png')) {
+                        const blob = await item.getType('image/png');
+                        processImage(blob);
+                        return;
                     }
                 }
-            } catch (e) {
-                // 静默失败
+            } catch (e) {}
+        });
+
+        document.getElementById('upload-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                processImage(e.target.files[0]);
             }
         });
 
-        // 粘贴截图按钮
-        document.getElementById('paste-btn').addEventListener('click', async () => {
-            try {
-                const items = await navigator.clipboard.read();
-                let foundImage = false;
-                for (const item of items) {
-                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
-                        const blob = await item.getType(item.types[0]);
-                        handleImage(blob);
-                        foundImage = true;
-                        break;
-                    }
-                }
-                if (!foundImage) {
-                    showToast('剪贴板中没有图片');
-                }
-            } catch (e) {
-                showToast('无法读取剪贴板，请手动上传');
-            }
-        });
-
-        // 文件上传事件
-        document.getElementById('file-upload').addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleImage(e.target.files[0]);
-            }
-        });
-
-        // 清除预览
-        document.getElementById('clear-preview').addEventListener('click', () => {
-            selectedFile = null;
-            document.getElementById('image-preview').classList.add('hidden');
-            document.getElementById('file-upload').value = '';
-        });
-
-        // 分享按钮事件
-        document.getElementById('share-btn').addEventListener('click', async () => {
-            if (!currentResult) return;
-            
-            const resultText = `
-商家：${currentResult.shop_name}
-套餐：${currentResult.package_name}
-价格：¥${currentResult.original_price}
-配料：${currentResult.ingredients.join('、')}
-${currentResult.warnings?.length ? '注意事项：' + currentResult.warnings.join('；') : ''}
-${currentResult.saving_tips?.length ? '省钱建议：' + currentResult.saving_tips.join('；') : ''}
-            `.trim();
-
-            const shareData = {
-                title: '外卖比价结果',
-                text: resultText,
-                url: window.location.href
-            };
-
-            try {
-                await navigator.share(shareData);
-            } catch (e) {
-                await navigator.clipboard.writeText(resultText);
-                showToast('结果已复制到剪贴板');
-            }
-        });
-
-        // 清空历史记录
-        document.getElementById('clear-history').addEventListener('click', () => {
-            if (confirm('确定要清空所有历史记录吗？')) {
-                localStorage.removeItem('compare_history');
-                loadHistory();
-                showToast('历史记录已清空');
-            }
-        });
-
-        // 处理图片
-        function handleImage(file) {
-            selectedFile = file;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('preview-img').src = e.target.result;
-                document.getElementById('image-preview').classList.remove('hidden');
-                // 自动开始识别
-                uploadImage(file);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // 上传图片并识别
-        async function uploadImage(file) {
+        async function processImage(file) {
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('result').classList.add('hidden');
-
+            
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('image', file);
 
             try {
                 const response = await fetch(API_URL, {
@@ -263,71 +91,48 @@ ${currentResult.saving_tips?.length ? '省钱建议：' + currentResult.saving_t
                 });
 
                 const data = await response.json();
-                
+
                 if (data.error) {
-                    showToast(`识别失败：${data.error}`);
+                    alert(`识别失败：${data.error}${data.details ? '\n' + data.details : ''}`);
                 } else {
                     displayResult(data);
                     saveToHistory(data);
-                    showToast('识别成功');
                 }
             } catch (e) {
-                showToast('网络连接失败，请检查网络后重试');
+                alert('网络连接失败，请检查网络后重试');
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }
         }
 
-        // 显示识别结果
         function displayResult(data) {
             currentResult = data;
             const content = document.getElementById('result-content');
+            document.getElementById('result').classList.remove('hidden');
+
             let html = `
                 <p><strong>商家：</strong>${data.shop_name}</p>
                 <p><strong>套餐：</strong>${data.package_name}</p>
-                <p><strong>价格：</strong>¥${data.original_price}</p>
                 <p><strong>配料：</strong>${data.ingredients.join('、')}</p>
+                <p><strong>原价：</strong>¥${data.original_price}</p>
             `;
-
-            if (data.warnings?.length > 0) {
-                html += `<div class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <p class="font-medium text-yellow-800 dark:text-yellow-200">⚠️ 注意事项</p>
-                    <ul class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">`;
-                data.warnings.forEach(warning => {
-                    html += `<li>• ${warning}</li>`;
-                });
-                html += `</ul></div>`;
-            }
-
-            if (data.saving_tips?.length > 0) {
-                html += `<div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p class="font-medium text-green-800 dark:text-green-200">💡 省钱建议</p>
-                    <ul class="mt-1 text-sm text-green-700 dark:text-green-300">`;
-                data.saving_tips.forEach(tip => {
-                    html += `<li>• ${tip}</li>`;
-                });
-                html += `</ul></div>`;
-            }
 
             content.innerHTML = html;
 
-            // 更新平台链接（修复京东链接）
+            // 设置三个平台的跳转链接
             document.getElementById('meituan-btn').href = `https://waimai.meituan.com/search?query=${encodeURIComponent(data.search_queries.meituan)}`;
-            document.getElementById('jd-btn').href = `https://daojia.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
+            document.getElementById('jd-btn').href = `https://waimai.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
             document.getElementById('taobao-btn').href = `https://market.m.taobao.com/app/tb-search/search?keyword=${encodeURIComponent(data.search_queries.taobao)}`;
-
-            document.getElementById('result').classList.remove('hidden');
         }
 
-        // 保存到本地历史记录
         function saveToHistory(data) {
             let history = JSON.parse(localStorage.getItem('compare_history') || '[]');
-            
             history.unshift({
                 ...data,
                 timestamp: Date.now()
             });
 
+            // 最多保留10条历史记录
             if (history.length > MAX_HISTORY) {
                 history = history.slice(0, MAX_HISTORY);
             }
@@ -336,28 +141,22 @@ ${currentResult.saving_tips?.length ? '省钱建议：' + currentResult.saving_t
             loadHistory();
         }
 
-        // 加载历史记录
+        // 加载历史记录（彻底修复了栈溢出问题）
         function loadHistory() {
             const history = JSON.parse(localStorage.getItem('compare_history') || '[]');
             const historyList = document.getElementById('history-list');
 
             if (history.length === 0) {
-                historyList.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">暂无历史记录</p>';
+                historyList.innerHTML = '<p class="text-gray-500 text-center">暂无历史记录</p>';
                 return;
             }
 
             let html = '';
             history.forEach((item, index) => {
-                const date = new Date(item.timestamp).toLocaleString();
                 html += `
-                    <div class="history-item p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex justify-between items-center" data-index="${index}">
-                        <div class="flex-1 mr-2">
-                            <p class="font-medium truncate">${item.shop_name} - ${item.package_name}</p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">¥${item.original_price} | ${date}</p>
-                        </div>
-                        <button class="delete-history text-gray-400 hover:text-red-500 p-1" data-index="${index}">
-                            ✕
-                        </button>
+                    <div class="border p-2 rounded cursor-pointer history-item" data-index="${index}">
+                        <p class="font-bold">${item.shop_name}</p>
+                        <p class="text-sm">${item.package_name}</p>
                     </div>
                 `;
             });
@@ -366,23 +165,10 @@ ${currentResult.saving_tips?.length ? '省钱建议：' + currentResult.saving_t
 
             // 绑定历史记录点击事件
             document.querySelectorAll('.history-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('delete-history')) return;
+                item.addEventListener('click', () => {
                     const index = parseInt(item.dataset.index);
                     displayResult(history[index]);
                     document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
-                });
-            });
-
-            // 绑定删除事件
-            document.querySelectorAll('.delete-history').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const index = parseInt(btn.dataset.index);
-                    history.splice(index, 1);
-                    localStorage.setItem('compare_history', JSON.stringify(history));
-                    loadHistory();
-                    showToast('已删除');
                 });
             });
         }
