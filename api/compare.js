@@ -1,9 +1,17 @@
 export const config = {
-  maxDuration: 60, // ✅ 修复问题1：Vercel默认10秒超时，豆包API经常超过
+  maxDuration: 60,
 };
 
+// 简单的图片压缩函数
+async function compressImage(buffer, mimeType, maxWidth = 1024) {
+  const sharp = (await import('sharp')).default;
+  return sharp(buffer)
+    .resize(maxWidth, null, { withoutEnlargement: true })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+}
+
 export default async function handler(req, res) {
-  // 处理CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,7 +20,6 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // ✅ 修复问题2：添加GET测试端点，方便直接在浏览器调试
   if (req.method === 'GET') {
     return res.status(200).json({
       status: "ok",
@@ -34,16 +41,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '请上传图片文件' });
     }
 
-    // 转换图片为base64
+    // 限制文件大小为5MB
+    if (file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: '图片大小不能超过5MB' });
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const base64Image = buffer.toString('base64');
+    
+    // 压缩图片
+    const compressedBuffer = await compressImage(buffer, file.type);
+    const base64Image = compressedBuffer.toString('base64');
 
-    // ✅ 修复问题3：给fetch添加30秒超时，避免函数挂起
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 延长到45秒，给压缩留时间
 
-    // 调用豆包API（官方原生接口）
     const response = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
       method: "POST",
       headers: {
@@ -61,7 +73,7 @@ export default async function handler(req, res) {
               {
                 type: "image_url",
                 image_url: {
-                  url: `data:${file.type};base64,${base64Image}`
+                  url: `data:image/jpeg;base64,${base64Image}`
                 }
               },
               {
@@ -108,13 +120,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ 
         error: "豆包API调用失败", 
         status: response.status,
-        details: errorText.substring(0, 500) // 只返回前500个字符，避免响应过大
+        details: errorText.substring(0, 500)
       });
     }
 
     const data = await response.json();
     
-    // ✅ 修复问题4：添加JSON解析错误处理
     try {
       const result = JSON.parse(data.choices[0].message.content);
       return res.status(200).json(result);
