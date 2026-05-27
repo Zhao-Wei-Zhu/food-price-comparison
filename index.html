@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>外卖比价AI助手</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -15,10 +19,12 @@
             .content-auto {
                 content-visibility: auto;
             }
+            .btn-active:active {
+                transform: scale(0.98);
+            }
         }
     </style>
     <style>
-        /* 系统级暗黑模式自动适配 */
         @media (prefers-color-scheme: dark) {
             html {
                 color-scheme: dark;
@@ -29,9 +35,27 @@
                 color-scheme: light;
             }
         }
+        .toast {
+            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <!-- Toast 提示 -->
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden">
+        <div class="bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-4 py-2 rounded-lg shadow-lg toast">
+            <span id="toast-message"></span>
+        </div>
+    </div>
+
     <div class="max-w-md mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold text-center mb-8">🍔 外卖比价AI助手</h1>
 
@@ -43,10 +67,23 @@
                         <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                             <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">点击上传截图 或 截图后自动识别</p>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">点击上传截图</p>
                     </div>
                 </label>
                 <input id="file-upload" type="file" accept="image/*" class="hidden">
+                
+                <!-- 粘贴截图按钮 -->
+                <button id="paste-btn" class="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors btn-active">
+                    📋 粘贴截图
+                </button>
+
+                <!-- 图片预览 -->
+                <div id="image-preview" class="mt-4 hidden w-full">
+                    <img id="preview-img" class="w-full rounded-lg shadow" alt="预览图">
+                    <button id="clear-preview" class="mt-2 w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium py-2 px-4 rounded-lg transition-colors btn-active">
+                        重新选择
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -63,20 +100,25 @@
             
             <!-- 平台跳转按钮 -->
             <div class="grid grid-cols-3 gap-3 mt-6">
-                <a id="meituan-btn" href="#" target="_blank" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors">美团</a>
-                <a id="jd-btn" href="#" target="_blank" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors">京东</a>
-                <a id="taobao-btn" href="#" target="_blank" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg text-center transition-colors">淘宝</a>
+                <a id="meituan-btn" href="#" target="_blank" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors btn-active">美团</a>
+                <a id="jd-btn" href="#" target="_blank" class="bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors btn-active">京东</a>
+                <a id="taobao-btn" href="#" target="_blank" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors btn-active">淘宝</a>
             </div>
 
             <!-- 一键分享按钮 -->
-            <button id="share-btn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+            <button id="share-btn" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors btn-active">
                 📤 分享结果
             </button>
         </div>
 
         <!-- 历史记录 -->
         <div id="history-section" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h2 class="text-xl font-bold mb-4">📜 历史记录</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">📜 历史记录</h2>
+                <button id="clear-history" class="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400">
+                    清空
+                </button>
+            </div>
             <div id="history-list" class="space-y-2">
                 <p class="text-gray-500 dark:text-gray-400 text-sm">暂无历史记录</p>
             </div>
@@ -84,12 +126,28 @@
     </div>
 
     <script>
-        // ✅ 已经设置为正确的Vercel Functions路径
         const API_URL = "/api/compare";
         const MAX_HISTORY = 10;
         let currentResult = null;
+        let selectedFile = null;
 
-        // 页面加载时自动读取剪贴板的截图
+        // 注册Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+
+        // Toast 提示函数
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // 页面加载时尝试读取剪贴板
         window.addEventListener('load', async () => {
             loadHistory();
             try {
@@ -97,20 +155,48 @@
                 for (const item of items) {
                     if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
                         const blob = await item.getType(item.types[0]);
-                        uploadImage(blob);
+                        handleImage(blob);
                         break;
                     }
                 }
             } catch (e) {
-                // 剪贴板没有图片或权限不足，静默失败
+                // 静默失败
+            }
+        });
+
+        // 粘贴截图按钮
+        document.getElementById('paste-btn').addEventListener('click', async () => {
+            try {
+                const items = await navigator.clipboard.read();
+                let foundImage = false;
+                for (const item of items) {
+                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                        const blob = await item.getType(item.types[0]);
+                        handleImage(blob);
+                        foundImage = true;
+                        break;
+                    }
+                }
+                if (!foundImage) {
+                    showToast('剪贴板中没有图片');
+                }
+            } catch (e) {
+                showToast('无法读取剪贴板，请手动上传');
             }
         });
 
         // 文件上传事件
         document.getElementById('file-upload').addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                uploadImage(e.target.files[0]);
+                handleImage(e.target.files[0]);
             }
+        });
+
+        // 清除预览
+        document.getElementById('clear-preview').addEventListener('click', () => {
+            selectedFile = null;
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('file-upload').value = '';
         });
 
         // 分享按钮事件
@@ -122,8 +208,8 @@
 套餐：${currentResult.package_name}
 价格：¥${currentResult.original_price}
 配料：${currentResult.ingredients.join('、')}
-${currentResult.warnings ? '注意事项：' + currentResult.warnings.join('；') : ''}
-${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join('；') : ''}
+${currentResult.warnings?.length ? '注意事项：' + currentResult.warnings.join('；') : ''}
+${currentResult.saving_tips?.length ? '省钱建议：' + currentResult.saving_tips.join('；') : ''}
             `.trim();
 
             const shareData = {
@@ -136,9 +222,31 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 await navigator.share(shareData);
             } catch (e) {
                 await navigator.clipboard.writeText(resultText);
-                alert('结果已复制到剪贴板');
+                showToast('结果已复制到剪贴板');
             }
         });
+
+        // 清空历史记录
+        document.getElementById('clear-history').addEventListener('click', () => {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                localStorage.removeItem('compare_history');
+                loadHistory();
+                showToast('历史记录已清空');
+            }
+        });
+
+        // 处理图片
+        function handleImage(file) {
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('preview-img').src = e.target.result;
+                document.getElementById('image-preview').classList.remove('hidden');
+                // 自动开始识别
+                uploadImage(file);
+            };
+            reader.readAsDataURL(file);
+        }
 
         // 上传图片并识别
         async function uploadImage(file) {
@@ -157,13 +265,14 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 const data = await response.json();
                 
                 if (data.error) {
-                    alert(`识别失败：${data.error}${data.details ? '\n' + data.details : ''}`);
+                    showToast(`识别失败：${data.error}`);
                 } else {
                     displayResult(data);
                     saveToHistory(data);
+                    showToast('识别成功');
                 }
             } catch (e) {
-                alert('网络连接失败，请检查网络后重试');
+                showToast('网络连接失败，请检查网络后重试');
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }
@@ -180,7 +289,7 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 <p><strong>配料：</strong>${data.ingredients.join('、')}</p>
             `;
 
-            if (data.warnings && data.warnings.length > 0) {
+            if (data.warnings?.length > 0) {
                 html += `<div class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                     <p class="font-medium text-yellow-800 dark:text-yellow-200">⚠️ 注意事项</p>
                     <ul class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">`;
@@ -190,7 +299,7 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 html += `</ul></div>`;
             }
 
-            if (data.saving_tips && data.saving_tips.length > 0) {
+            if (data.saving_tips?.length > 0) {
                 html += `<div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p class="font-medium text-green-800 dark:text-green-200">💡 省钱建议</p>
                     <ul class="mt-1 text-sm text-green-700 dark:text-green-300">`;
@@ -202,9 +311,9 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
 
             content.innerHTML = html;
 
-            // 设置三个平台的跳转链接
+            // 更新平台链接（修复京东链接）
             document.getElementById('meituan-btn').href = `https://waimai.meituan.com/search?query=${encodeURIComponent(data.search_queries.meituan)}`;
-            document.getElementById('jd-btn').href = `https://waimai.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
+            document.getElementById('jd-btn').href = `https://daojia.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
             document.getElementById('taobao-btn').href = `https://market.m.taobao.com/app/tb-search/search?keyword=${encodeURIComponent(data.search_queries.taobao)}`;
 
             document.getElementById('result').classList.remove('hidden');
@@ -219,7 +328,6 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
                 timestamp: Date.now()
             });
 
-            // 最多保留10条历史记录
             if (history.length > MAX_HISTORY) {
                 history = history.slice(0, MAX_HISTORY);
             }
@@ -228,7 +336,7 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
             loadHistory();
         }
 
-        // 加载历史记录（彻底修复了栈溢出问题）
+        // 加载历史记录
         function loadHistory() {
             const history = JSON.parse(localStorage.getItem('compare_history') || '[]');
             const historyList = document.getElementById('history-list');
@@ -242,9 +350,14 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
             history.forEach((item, index) => {
                 const date = new Date(item.timestamp).toLocaleString();
                 html += `
-                    <div class="history-item p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" data-index="${index}">
-                        <p class="font-medium">${item.shop_name} - ${item.package_name}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">¥${item.original_price} | ${date}</p>
+                    <div class="history-item p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex justify-between items-center" data-index="${index}">
+                        <div class="flex-1 mr-2">
+                            <p class="font-medium truncate">${item.shop_name} - ${item.package_name}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">¥${item.original_price} | ${date}</p>
+                        </div>
+                        <button class="delete-history text-gray-400 hover:text-red-500 p-1" data-index="${index}">
+                            ✕
+                        </button>
                     </div>
                 `;
             });
@@ -253,11 +366,23 @@ ${currentResult.saving_tips ? '省钱建议：' + currentResult.saving_tips.join
 
             // 绑定历史记录点击事件
             document.querySelectorAll('.history-item').forEach(item => {
-                item.addEventListener('click', () => {
+                item.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('delete-history')) return;
                     const index = parseInt(item.dataset.index);
                     displayResult(history[index]);
-                    // 点击后滚动到结果区域
                     document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+
+            // 绑定删除事件
+            document.querySelectorAll('.delete-history').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(btn.dataset.index);
+                    history.splice(index, 1);
+                    localStorage.setItem('compare_history', JSON.stringify(history));
+                    loadHistory();
+                    showToast('已删除');
                 });
             });
         }
