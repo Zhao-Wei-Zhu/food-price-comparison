@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="/manifest.json">
     <style>
-        /* 系统级暗黑模式自动适配 */
         @media (prefers-color-scheme: dark) {
             html {
                 color-scheme: dark;
@@ -20,7 +19,8 @@
         <h1 class="text-2xl font-bold text-center mb-6 text-blue-600">外卖比价 AI 助手</h1>
         
         <div class="bg-white rounded-lg shadow p-4 mb-4">
-            <input type="file" id="file-input" accept="image/*" capture="environment" class="hidden">
+            <!-- ✅ 已修复：去掉 capture，支持拍照+相册 -->
+            <input type="file" id="file-input" accept="image/*" class="hidden">
             <button id="upload-btn" class="w-full bg-blue-500 text-white py-3 rounded-lg font-bold">
                 上传外卖截图
             </button>
@@ -48,19 +48,16 @@
     </div>
 
     <script>
-        // ✅ PWA Service Worker 注册（已内置）
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js');
             });
         }
 
-        // 主业务逻辑
         const API_URL = "/api/compare";
         const MAX_HISTORY = 10;
         let currentResult = null;
 
-        // 页面加载时自动读取剪贴板的截图
         window.addEventListener('load', async () => {
             loadHistory();
             try {
@@ -127,7 +124,6 @@
 
             content.innerHTML = html;
 
-            // ✅ 已修复：三大平台跳转链接（京东链接已更新）
             document.getElementById('meituan-btn').href = `https://waimai.meituan.com/search?query=${encodeURIComponent(data.search_queries.meituan)}`;
             document.getElementById('jd-btn').href = `https://search.jd.com/Search?keyword=${encodeURIComponent(data.search_queries.jd)}&enc=utf-8&wq=${encodeURIComponent(data.search_queries.jd)}`;
             document.getElementById('taobao-btn').href = `https://market.m.taobao.com/app/tb-search/search?keyword=${encodeURIComponent(data.search_queries.taobao)}`;
@@ -141,7 +137,7 @@
             });
 
             if (history.length > MAX_HISTORY) {
-                history = slice(0, MAX_HISTORY);
+                history = history.slice(0, MAX_HISTORY);
             }
 
             localStorage.setItem('compare_history', JSON.stringify(history));
