@@ -48,6 +48,14 @@
     </div>
 
     <script>
+        // ✅ PWA Service Worker 注册（已内置）
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js');
+            });
+        }
+
+        // 主业务逻辑
         const API_URL = "/api/compare";
         const MAX_HISTORY = 10;
         let currentResult = null;
@@ -119,9 +127,9 @@
 
             content.innerHTML = html;
 
-            // 设置三个平台的跳转链接
+            // ✅ 已修复：三大平台跳转链接（京东链接已更新）
             document.getElementById('meituan-btn').href = `https://waimai.meituan.com/search?query=${encodeURIComponent(data.search_queries.meituan)}`;
-            document.getElementById('jd-btn').href = `https://waimai.jd.com/search?keyword=${encodeURIComponent(data.search_queries.jd)}`;
+            document.getElementById('jd-btn').href = `https://search.jd.com/Search?keyword=${encodeURIComponent(data.search_queries.jd)}&enc=utf-8&wq=${encodeURIComponent(data.search_queries.jd)}`;
             document.getElementById('taobao-btn').href = `https://market.m.taobao.com/app/tb-search/search?keyword=${encodeURIComponent(data.search_queries.taobao)}`;
         }
 
@@ -132,16 +140,14 @@
                 timestamp: Date.now()
             });
 
-            // 最多保留10条历史记录
             if (history.length > MAX_HISTORY) {
-                history = history.slice(0, MAX_HISTORY);
+                history = slice(0, MAX_HISTORY);
             }
 
             localStorage.setItem('compare_history', JSON.stringify(history));
             loadHistory();
         }
 
-        // 加载历史记录（彻底修复了栈溢出问题）
         function loadHistory() {
             const history = JSON.parse(localStorage.getItem('compare_history') || '[]');
             const historyList = document.getElementById('history-list');
@@ -163,7 +169,6 @@
 
             historyList.innerHTML = html;
 
-            // 绑定历史记录点击事件
             document.querySelectorAll('.history-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const index = parseInt(item.dataset.index);
